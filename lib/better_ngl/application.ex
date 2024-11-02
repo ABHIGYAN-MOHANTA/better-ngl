@@ -7,6 +7,8 @@ defmodule BetterNgl.Application do
 
   @impl true
   def start(_type, _args) do
+    :ets.new(:chat_messages, [:set, :public, :named_table, :duplicate_bag])
+
     children = [
       BetterNglWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:better_ngl, :dns_cluster_query) || :ignore},

@@ -17,7 +17,8 @@ defmodule BetterNglWeb.Router do
   scope "/", BetterNglWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", RoomLive, :index
+    live "/room/:slug", RoomLive, :show
   end
 
   # Other scopes may use custom stacks.
