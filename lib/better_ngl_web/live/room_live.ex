@@ -25,6 +25,22 @@ defmodule BetterNglWeb.RoomLive do
      )}
   end
 
+  defp format_timestamp(timestamp) when is_binary(timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, datetime, _offset} ->
+        Calendar.strftime(datetime, "%I:%M %p")
+
+      _ ->
+        "Invalid time"
+    end
+  end
+
+  defp format_timestamp(%DateTime{} = timestamp) do
+    Calendar.strftime(timestamp, "%I:%M %p")
+  end
+
+  defp format_timestamp(_), do: "Invalid time"
+
   @impl true
   def handle_params(params, _uri, socket) do
     socket =
@@ -271,8 +287,13 @@ defmodule BetterNglWeb.RoomLive do
                   <p class="text-sm"><%= message.content %></p>
                 </div>
               </div>
-              <span class={timestamp_class(message, @anonymous_id)}>
-                <%= Calendar.strftime(message.timestamp, "%H:%M") %>
+              <span
+                id={"timestamp-#{message.id}"}
+                class={timestamp_class(message, @anonymous_id)}
+                phx-hook="LocalTime"
+                data-time={DateTime.to_iso8601(message.timestamp)}
+              >
+                <%= format_timestamp(message.timestamp) %>
               </span>
             </div>
           <% end %>
