@@ -6,11 +6,6 @@ defmodule BetterNglWeb.RoomLive do
   @message_limit 100
   @inactive_timeout :timer.minutes(30)
 
-  # Add a new function to handle the user ID assignment
-  def handle_event("restore_user_id", %{"userId" => user_id}, socket) do
-    {:noreply, assign(socket, :anonymous_id, user_id)}
-  end
-
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -118,17 +113,28 @@ defmodule BetterNglWeb.RoomLive do
 
   @impl true
   def handle_info(:cleanup_old_messages, socket) do
-    cutoff = DateTime.add(DateTime.utc_now(), -@inactive_timeout, :millisecond)
+    try do
+      cutoff = DateTime.add(DateTime.utc_now(), -@inactive_timeout, :millisecond)
 
-    :ets.select_delete(:chat_messages, [
-      {
-        {:_, %{timestamp: :"$1", room: socket.assigns.slug}},
-        [{:<, :"$1", cutoff}],
-        [true]
-      }
-    ])
+      # Convert messages to a list and delete manually if they're old
+      messages = :ets.match_object(:chat_messages, {:_, %{room: socket.assigns.slug}})
 
-    {:noreply, socket}
+      Enum.each(messages, fn {id, message} ->
+        if DateTime.compare(message.timestamp, cutoff) == :lt do
+          :ets.delete(:chat_messages, id)
+        end
+      end)
+
+      {:noreply, socket}
+    rescue
+      # Ensure the LiveView doesn't crash if cleanup fails
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # Add a new function to handle the user ID assignment
+  def handle_event("restore_user_id", %{"userId" => user_id}, socket) do
+    {:noreply, assign(socket, :anonymous_id, user_id)}
   end
 
   @impl true
@@ -255,6 +261,13 @@ defmodule BetterNglWeb.RoomLive do
             <div class="flex flex-col space-y-1" id={"message-#{message.id}"}>
               <div class={"flex items-start gap-2.5 #{message_container_class(message, @anonymous_id)}"}>
                 <div class={message_bubble_class(message, @anonymous_id)}>
+                  <p class="text-xs mb-1 opacity-75">
+                    <%= if message.sender_id == @anonymous_id do %>
+                      You
+                    <% else %>
+                      <%= message.sender_id %>
+                    <% end %>
+                  </p>
                   <p class="text-sm"><%= message.content %></p>
                 </div>
               </div>
