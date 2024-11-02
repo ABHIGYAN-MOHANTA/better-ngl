@@ -6,13 +6,19 @@ defmodule BetterNglWeb.RoomLive do
   @message_limit 100
   @inactive_timeout :timer.minutes(30)
 
+  # Add a new function to handle the user ID assignment
+  def handle_event("restore_user_id", %{"userId" => user_id}, socket) do
+    {:noreply, assign(socket, :anonymous_id, user_id)}
+  end
+
   @impl true
   def mount(_params, _session, socket) do
-    anonymous_id = "anon-#{MnemonicSlugs.generate_slug(3)}"
-
     if connected?(socket) do
       :timer.send_interval(60_000, :cleanup_old_messages)
     end
+
+    # Generate a temporary ID that will be replaced if there's one in localStorage
+    anonymous_id = "anon-#{MnemonicSlugs.generate_slug(3)}"
 
     {:ok,
      assign(socket,
@@ -216,7 +222,7 @@ defmodule BetterNglWeb.RoomLive do
   @impl true
   def render(%{live_action: :show} = assigns) do
     ~H"""
-    <div class="p-4">
+    <div class="p-4" id="chat-container" phx-hook="UserPersistence" data-anonymous-id={@anonymous_id}>
       <div class="flex justify-between items-center mb-4">
         <div>
           <h1 class="text-2xl font-bold">Better NGL</h1>
