@@ -60,8 +60,13 @@ defmodule BetterNglWeb.RoomLive do
 
   @impl true
   def handle_info({:new_message, message}, socket) do
-    updated_messages = Enum.take([message | socket.assigns.messages], @message_limit)
-    {:noreply, assign(socket, messages: updated_messages)}
+    # Only add the message if it's not already in our list
+    if !Enum.any?(socket.assigns.messages, fn m -> m.id == message.id end) do
+      updated_messages = Enum.take([message | socket.assigns.messages], @message_limit)
+      {:noreply, assign(socket, messages: updated_messages)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -148,7 +153,7 @@ defmodule BetterNglWeb.RoomLive do
   def handle_event("send_message", %{"message" => content}, socket) do
     if String.trim(content) != "" do
       message = %{
-        id: System.unique_integer([:positive]),
+        id: System.unique_integer([:positive, :monotonic]),
         room: socket.assigns.slug,
         content: content,
         sender_id: socket.assigns.anonymous_id,
@@ -163,16 +168,15 @@ defmodule BetterNglWeb.RoomLive do
         {:new_message, message}
       )
 
-      {:noreply,
-       socket
-       |> update(:typing_users, &MapSet.delete(&1, socket.assigns.anonymous_id))
-       |> assign(messages: [message | socket.assigns.messages])}
+      # Remove the local message update since we'll receive it via broadcast
+      {:noreply, update(socket, :typing_users, &MapSet.delete(&1, socket.assigns.anonymous_id))}
     else
       {:noreply, socket}
     end
   end
 
   defp store_message(message) do
+    # Store as a tuple to preserve all fields
     :ets.insert(:chat_messages, {message.id, message})
   end
 
