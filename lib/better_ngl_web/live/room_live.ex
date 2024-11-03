@@ -25,12 +25,6 @@ defmodule BetterNglWeb.RoomLive do
      )}
   end
 
-  defp format_timestamp(%DateTime{} = timestamp) do
-    Calendar.strftime(timestamp, "%I:%M %p")
-  end
-
-  defp format_timestamp(_), do: "Invalid time"
-
   @impl true
   def handle_params(params, _uri, socket) do
     socket =
