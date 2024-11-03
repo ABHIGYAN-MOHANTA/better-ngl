@@ -275,6 +275,7 @@ defmodule BetterNglWeb.RoomLive do
           class="h-[500px] overflow-y-auto p-4 space-y-4"
           id="messages-container"
           phx-update="append"
+          phx-hook="ChatScroll"
         >
           <%= for message <- Enum.reverse(@messages) do %>
             <div class="flex flex-col space-y-1" id={"message-#{message.id}"}>

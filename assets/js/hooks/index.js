@@ -24,6 +24,47 @@ let Hooks = {
         localStorage.setItem("userId", userId);
       });
     }
+  },
+  ChatScroll: {
+    mounted() {
+      // Wait briefly for the DOM to be ready
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, 0);
+
+      // Create observer for new messages
+      const messagesContainer = this.el;
+      if (messagesContainer) {
+        this.observer = new MutationObserver(() => {
+          this.scrollToBottom();
+        });
+
+        // Configure the observer to watch for child additions
+        this.observer.observe(messagesContainer, {
+          childList: true
+        });
+      }
+    },
+
+    destroyed() {
+      if (this.observer) {
+        this.observer.disconnect();
+      }
+    },
+
+    scrollToBottom() {
+      // this.el refers to the element with the phx-hook attribute
+      const messagesContainer = this.el;
+      if (messagesContainer) {
+        // Only scroll if we're already near the bottom
+        const isNearBottom =
+          messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100;
+
+        if (isNearBottom) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }
+    }
   }
 };
 
