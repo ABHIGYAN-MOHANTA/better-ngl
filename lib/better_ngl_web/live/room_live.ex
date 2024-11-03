@@ -4,7 +4,7 @@ defmodule BetterNglWeb.RoomLive do
   alias Phoenix.PubSub
 
   @message_limit 100
-  @inactive_timeout :timer.minutes(30)
+  @inactive_timeout :timer.hours(24)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -23,16 +23,6 @@ defmodule BetterNglWeb.RoomLive do
        typing_users: MapSet.new(),
        last_typing_reset: nil
      )}
-  end
-
-  defp format_timestamp(timestamp) when is_binary(timestamp) do
-    case DateTime.from_iso8601(timestamp) do
-      {:ok, datetime, _offset} ->
-        Calendar.strftime(datetime, "%I:%M %p")
-
-      _ ->
-        "Invalid time"
-    end
   end
 
   defp format_timestamp(%DateTime{} = timestamp) do
