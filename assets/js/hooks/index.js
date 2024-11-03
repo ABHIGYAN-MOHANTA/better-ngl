@@ -13,18 +13,6 @@ let Hooks = {
         this.pushEvent("restore_user_id", { userId: storedUserId });
       }
     }
-  },
-  LocalTime: {
-    mounted() {
-      // Convert UTC time to local time
-      const utcTime = this.el.getAttribute("data-time");
-      const localTime = new Date(utcTime).toLocaleTimeString([], {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      this.el.innerText = localTime;
-    }
   }
 };
 

@@ -287,13 +287,10 @@ defmodule BetterNglWeb.RoomLive do
                   <p class="text-sm"><%= message.content %></p>
                 </div>
               </div>
-              <span
-                id={"timestamp-#{message.id}"}
-                class={timestamp_class(message, @anonymous_id)}
-                phx-hook="LocalTime"
-                data-time={DateTime.to_iso8601(message.timestamp)}
-              >
-                <%= format_timestamp(message.timestamp) %>
+              <span class={timestamp_class(message, @anonymous_id)}>
+                <%= message.timestamp
+                |> Timex.Timezone.convert("Asia/Kolkata")
+                |> Timex.format!("{h12}:{m} {AM} IST") %>
               </span>
             </div>
           <% end %>
