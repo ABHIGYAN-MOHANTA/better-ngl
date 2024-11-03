@@ -57,7 +57,8 @@ defmodule BetterNgl.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:mnemonic_slugs, "~> 0.0.3"},
-      {:timex, "~> 3.7"}
+      {:timex, "~> 3.7"},
+      {:cors_plug, "~> 3.0"}
     ]
   end
 

@@ -12,7 +12,6 @@ defmodule BetterNglWeb.RoomLive do
       :timer.send_interval(60_000, :cleanup_old_messages)
     end
 
-    # Generate a temporary ID that will be replaced if there's one in localStorage
     anonymous_id = "anon-#{MnemonicSlugs.generate_slug(3)}"
 
     {:ok,
@@ -38,6 +37,7 @@ defmodule BetterNglWeb.RoomLive do
           if connected?(socket) do
             PubSub.subscribe(BetterNgl.PubSub, "room:#{slug}")
 
+            # Broadcast that we're joining
             PubSub.broadcast(
               BetterNgl.PubSub,
               "room:#{slug}",
@@ -49,6 +49,7 @@ defmodule BetterNglWeb.RoomLive do
             assign(socket,
               slug: slug,
               messages: messages,
+              # Start with just ourselves in the set
               online_users: MapSet.new([socket.assigns.anonymous_id])
             )
           else
@@ -72,27 +73,33 @@ defmodule BetterNglWeb.RoomLive do
 
   @impl true
   def handle_info({:user_joined, user_id}, socket) do
-    if user_id != socket.assigns.anonymous_id do
-      PubSub.broadcast(
-        BetterNgl.PubSub,
-        "room:#{socket.assigns.slug}",
-        {:user_presence, socket.assigns.anonymous_id}
-      )
+    # Always respond with our presence when someone joins
+    PubSub.broadcast(
+      BetterNgl.PubSub,
+      "room:#{socket.assigns.slug}",
+      {:user_presence, socket.assigns.anonymous_id}
+    )
 
-      socket =
-        update(socket, :online_users, fn users ->
-          MapSet.put(users, user_id)
-        end)
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+    # Add the joined user to our set
+    socket = update(socket, :online_users, &MapSet.put(&1, user_id))
+    {:noreply, socket}
   end
 
   @impl true
   def handle_info({:user_presence, user_id}, socket) do
-    {:noreply, update(socket, :online_users, &MapSet.put(&1, user_id))}
+    # Add any user who broadcasts their presence
+    socket = update(socket, :online_users, &MapSet.put(&1, user_id))
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:user_left, user_id}, socket) do
+    socket =
+      socket
+      |> update(:online_users, &MapSet.delete(&1, user_id))
+      |> update(:typing_users, &MapSet.delete(&1, user_id))
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -116,7 +123,6 @@ defmodule BetterNglWeb.RoomLive do
     try do
       cutoff = DateTime.add(DateTime.utc_now(), -@inactive_timeout, :millisecond)
 
-      # Convert messages to a list and delete manually if they're old
       messages = :ets.match_object(:chat_messages, {:_, %{room: socket.assigns.slug}})
 
       Enum.each(messages, fn {id, message} ->
@@ -127,13 +133,28 @@ defmodule BetterNglWeb.RoomLive do
 
       {:noreply, socket}
     rescue
-      # Ensure the LiveView doesn't crash if cleanup fails
       _ -> {:noreply, socket}
     end
   end
 
-  # Add a new function to handle the user ID assignment
-  def handle_event("restore_user_id", %{"userId" => user_id}, socket) do
+  @impl true
+  def handle_event("restore_user_id", %{"userId" => user_id, "previousId" => previous_id}, socket) do
+    if socket.assigns.slug && previous_id && previous_id != user_id do
+      # Broadcast that the old ID is leaving
+      PubSub.broadcast(
+        BetterNgl.PubSub,
+        "room:#{socket.assigns.slug}",
+        {:user_left, previous_id}
+      )
+
+      # Broadcast that the new ID is joining
+      PubSub.broadcast(
+        BetterNgl.PubSub,
+        "room:#{socket.assigns.slug}",
+        {:user_joined, user_id}
+      )
+    end
+
     {:noreply, assign(socket, :anonymous_id, user_id)}
   end
 
@@ -180,7 +201,6 @@ defmodule BetterNglWeb.RoomLive do
         {:new_message, message}
       )
 
-      # Remove the local message update since we'll receive it via broadcast
       {:noreply, update(socket, :typing_users, &MapSet.delete(&1, socket.assigns.anonymous_id))}
     else
       {:noreply, socket}
@@ -188,7 +208,6 @@ defmodule BetterNglWeb.RoomLive do
   end
 
   defp store_message(message) do
-    # Store as a tuple to preserve all fields
     :ets.insert(:chat_messages, {message.id, message})
   end
 
